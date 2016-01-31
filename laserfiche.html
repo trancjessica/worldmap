@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+.country:hover{
+  stroke: #fff;
+  stroke-width: 1px;
+}
+.text{
+  font-size:10px;
+}
+#Box {
+  margin:5px 10%;
+  width: 900;
+  height:500;
+  overflow:hidden;
+  background: #26466D;
+}
+.hidden { 
+  display: none; 
+}
+div.tooltip {
+  color: #222; 
+  background: #fff; 
+  padding: .5em; 
+  border-radius: 2px; 
+  box-shadow: 0px 0px 2px 0px #a6a6a6; 
+  opacity: 0.9; 
+  position: absolute;
+}
+
+.axis {
+  font: 10px sans-serif;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+
+.axis .domain {
+  fill: none;
+  stroke: #000;
+  stroke-opacity: .3;
+  stroke-width: 10px;
+  stroke-linecap: round;
+}
+
+.axis .halo {
+  fill: none;
+  stroke: #ddd;
+  stroke-width: 8px;
+  stroke-linecap: round;
+}
+
+.slider .handle {
+  fill: #fff;
+  stroke: #000;
+  stroke-opacity: .5;
+  stroke-width: 1.25px;
+  cursor: crosshair;
+}
+
+
+</style>
+</head>
+<body>
+<h1><center><FONT FACE="modern">Mapping the Achievements of Each Olympic Country</FONT> 
+ </cebter>
+</h1>
+
+<div id="Box"></div>
+
+
+
+<script src="js/d3.min.js"></script>
+<script src="js/topojson.v1.min.js"></script>
+
+<center><img src="scale.png" style="width:300;height:50px;"> </center>
+<script>
+
+d3.select(window).on("resize", throttle);
+
+
+
+
+
+
+
+
+var width = document.getElementById('Box').offsetWidth;
+var height = 500;
+
+var topo
+var projection
+var path 
+var svg
+var g;
+
+
+
+
+var tooltip = d3.select("#Box").append("div").attr("class", "tooltip hidden");
+
+//Set the width and the height of the map
+setup(width, height);
+
+
+//Set up a map with Mercator projection
+//Projection projects spherical coordinates to a cartesian plane
+//Path generator takes projected 2d geometry to format on SVG
+function setup(width, height){
+  projection = d3.geo.mercator()
+    .translate([(width/2), (height/2)])
+    .scale( width / 2 / Math.PI);
+
+  path = d3.geo.path().projection(projection);  //We bind the GeoSON data to the path element
+
+  svg = d3.select("#Box").append("svg")
+      .attr("width", width)
+      .attr("height", height)
+      .on("click", click)
+      .append("g");
+
+  g = svg.append("g");
+
+}
+
+//Collect data from world-top-min file
+  d3.json("data/world-topo-minCopy.json", function(error, world) {
+
+  var countries = topojson.feature(world, world.objects.countries).features;
+
+  topo = countries;
+  count = 2000
+
+
+  draw(topo, count); //Thisfunction allows us to create a path element for each object in the feature array
+
+});
+
+  function draw(topo, count){
+    svg.append("path")
+    .attr("d", path);
+
+    var country = g.selectAll(".country").data(topo);
+  
+    country.enter().insert("path")
+      .attr("class", "country")
+      .attr("d", path)
+      .attr("id", function(d,i){
+        return d.id;
+      })
+      .attr("title", function(d,i){
+        return d.properties.name;
+      })
+      .style("fill", function(d,i){
+
+        if(count == 2000){
+          return d.properties.color2000}
+        if(count == 2002){
+          
+          return d.properties.color2002}
+        if(count == 2004){
+          
+          return d.properties.color2004}
+        if(count == 2006){
+          
+          return d.properties.color2006}
+        if(count == 2008){
+          
+          return d.properties.color2008}
+        if(count == 2010){
+          
+          return d.properties.color2010}
+        if(count == 2012){
+          
+          return d.properties.color2012}
+       });
+
+      count = count + 1;
+      
+   
+       //.style("fill", function(d, i) { return d.properties.color; });
+
+      //.style("fill", function(d,i){
+      //  return d.properties.color;
+      //});
+
+        //offsets for tooltips
+  var offsetL = document.getElementById('Box').offsetLeft+30;
+  var offsetT = document.getElementById('Box').offsetTop+30;
+
+    //tooltips
+  country
+    .on("mousemove", function(d,i) {
+
+      var mouse = d3.mouse(svg.node()).map( function(d) { return parseInt(d); } );
+
+      tooltip.classed("hidden", false)
+             .attr("style", "left:"+(mouse[0]+offsetL)+"px;top:"+(mouse[1]+offsetT)+"px")
+             .html(d.properties.name);
+
+      })
+      .on("mouseout",  function(d,i) {
+        tooltip.classed("hidden", true);
+      }); 
+      
+  //Capitals of countries using external CSV file
+  d3.csv("data/country-capitals.csv", function(err, capitals) {
+
+    capitals.forEach(function(i){
+      addpoint(i.CapitalLongitude, i.CapitalLatitude, i.CapitalName );
+    });
+
+  });
+
+}
+
+
+function redraw(count) {
+  width = document.getElementById('Box').offsetWidth;
+  height = 500;
+  d3.select('svg').remove();
+  setup(width,height);
+  draw(topo, count);
+}
+
+
+
+
+
+var throttleTimer;
+function throttle() {
+  window.clearTimeout(throttleTimer);
+    throttleTimer = window.setTimeout(function() {
+      redraw(count);
+    }, 200);
+}
+
+
+//geo translation on mouse click in map
+function click() {
+  var latlon = projection.invert(d3.mouse(this));
+  console.log(latlon);
+}
+
+
+//function to add points and text to the map (used in plotting capitals)
+function addpoint(lat,lon,text) {
+
+  var gpoint = g.append("g").attr("class", "gpoint");
+  var x = projection([lat,lon])[0];
+  var y = projection([lat,lon])[1];
+
+  gpoint.append("svg:circle")
+        .attr("cx", x)
+        .attr("cy", y)
+        .attr("class","point")
+        .attr("r", 1.5);
+
+  //conditional in case a point has no associated text
+  if(text.length>0){
+
+    gpoint.append("text")
+          .attr("x", x+2)
+          .attr("y", y+2)
+          .attr("class","text")
+          .text(text);
+  }
+
+}
+
+function updateData(count){
+  count = 1
+  draw(topo, count)
+
+}
+
+
+
+var margin = {top: 200, right: 400, bottom: 200, left: 470},
+    width = 500 - 50 - margin.right,
+    height = 40 - margin.bottom - margin.top;
+
+var x = d3.scale.linear()
+    .domain([2000, 2012])
+    .range([0, 300])
+    .clamp(true);
+
+var brush = d3.svg.brush()
+    .x(x)
+    .extent([0, 0])
+    .on("brush", brushed);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+svg.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + height / 2 + ")")
+    .call(d3.svg.axis()
+      .scale(x)
+      .orient("bottom")
+      .tickFormat(function(d) { 
+        if (d % 2 == 0){
+        return d; }
+      })
+      .tickSize(0)
+      .tickPadding(12))
+  .select(".domain")
+  .select(function() { return this.parentNode.appendChild(this.cloneNode(true)); })
+    .attr("class", "halo");
+
+var slider = svg.append("g")
+    .attr("class", "slider")
+    .call(brush);
+
+slider.selectAll(".extent,.resize")
+    .remove();
+
+slider.select(".background")
+    .attr("height", height);
+
+var handle = slider.append("circle")
+    .attr("class", "handle")
+    .attr("transform", "translate(0," + height / 2 + ")")
+    .attr("r", 9);
+
+slider
+    .call(brush.event)
+  .transition() // gratuitous intro!
+    .duration(750)
+    .call(brush.extent([70, 70]))
+    .call(brush.event);
+
+function brushed() {
+  var value = brush.extent()[0];
+
+  if (d3.event.sourceEvent) { // not a programmatic event
+    value = x.invert(d3.mouse(this)[0]);
+    brush.extent([value, value]);
+  }
+  if (value % 2 == 0){
+    redraw(value)}
+  handle.attr("cx", x(value));
+  //d3.select("body").style("background-color", d3.hsl(value, .8, .8));
+}
+
+
+
+</script>
+</body>
+</html>
